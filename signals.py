@@ -12,6 +12,60 @@ class Filter(ABC):
     def pulse_shape(self, symbols: CNDarray, fc: float) -> CNDarray:
         raise NotImplemented
 
+
+class SincFilter(Filter):
+    def __init__(self, fsymb: float, sps: int, window_sz_in_symbols: int = 10) -> None:
+        super().__init__()
+        self.window_sz = window_sz_in_symbols * sps
+        self.fsymb = fsymb
+        self.sps = sps
+        self.fsamp = sps * fsymb
+
+        parity = self.window_sz % 2
+        pulse_len = self.window_sz + 1 - parity
+        self.pulse_len = pulse_len
+
+        # len(self.__pulse) is 2 * half + 1
+        self.pulse = np.sinc((np.arange(0, pulse_len) - int(pulse_len / 2)) / sps)
+        self.pulse = np.array(self.pulse, dtype=np.cdouble)
+        self.pulse /= np.linalg.norm(self.pulse, 2)
+
+    def __call__(self, signal: CNDarray, fc: float) -> CNDarray:
+        # the peek of the first symbol is at len(pulse) / 2, and the pulse
+        # representing the first symbol is centered at the peek with length of sps
+        # start = int((self.pulse_len - self.sps) / 2)
+        # start = 0
+        # signal = signal[start : (start + len(signal))]
+        # shift from fc to baseband
+        sig_shifted = np.multiply(
+            signal, np.exp(-2j * np.pi * fc / self.fsamp * np.arange(len(signal)))
+        )
+        sig_shifted = np.convolve(sig_shifted, self.pulse, "full")
+        # here start is different from pulse shaping
+        start = int((self.pulse_len) / 2)
+        sig_shifted = sig_shifted[start : (start + len(signal))]
+
+        return sig_shifted
+
+    def pulse_shape(self, symbols: CNDarray, fc: float) -> CNDarray:
+        # upsample
+        signal = np.zeros(len(symbols) * self.sps, dtype=np.cdouble)
+        signal[:: self.sps] = symbols
+        # convolved signal has length of int(pulse_len / 2) * 2 + len(symbols) * sps
+        signal = np.convolve(signal, self.pulse, "full")
+
+        # the peek of the first symbol is at len(pulse) / 2, and the pulse
+        # representing the first symbol is centered at the peek with length of sps
+        start = int((self.pulse_len - self.sps) / 2)
+        signal = signal[start : (start + len(symbols) * self.sps)]
+        # shift to fc
+        sig_shifted = np.multiply(
+            signal, np.exp(2j * np.pi * fc / self.fsamp * np.arange(len(signal)))
+        )
+
+        return sig_shifted
+
+
 class SqrtRaisedCos:
     def __init__(self, fsymb: float, rolloff: float):
         self.f = fsymb
@@ -65,63 +119,92 @@ class SqrtRaisedCos:
         return np.sqrt(unsqrt)
 
 
-class SqrtRaisedCosFilter:
+class SqrtRaisedCosFilter(Filter):
     def __init__(
-        self, fsymb: float, rolloff: float, fsamp: float, window_sz_in_symbols: int = 10
+        self, fsymb: float, rolloff: float, sps: int, window_sz_in_symbols: int = 10
     ):
+        super().__init__()
         self.sqrt_raised_cos = SqrtRaisedCos(fsymb, rolloff)
-        self.window_sz = window_sz_in_symbols * int(fsamp / fsymb + 0.5)
-        self.__fsymb = fsymb
-        self.__fsamp = fsamp
-        self.__rolloff = rolloff
+        self.window_sz = window_sz_in_symbols * sps
+        self.fsymb = fsymb
+        self.sps = sps
+        fsamp = fsymb * sps
+        self.fsamp = fsamp
+        self.rolloff = rolloff
 
         parity = self.window_sz % 2
         pulse_len = self.window_sz + 1 - parity
-        self.__pulse_len = pulse_len
-        self.__pulse = np.zeros(pulse_len, dtype=np.cdouble)
+        self.pulse_len = pulse_len
 
         # len(self.__pulse) is 2 * half + 1
-        half = int(len(self.__pulse) / 2)
-        self.__pulse = np.array([self.sqrt_raised_cos((i - half) / fsamp) for i in range(pulse_len)])
-        self.__pulse /= np.linalg.norm(self.__pulse, 2)
+        half = int(pulse_len / 2)
+        self.pulse = np.array(
+            [self.sqrt_raised_cos((i - half) / fsamp) for i in range(pulse_len)]
+        )
+        self.pulse /= np.linalg.norm(self.pulse, 2)
 
-    def filter(self, input: np.ndarray) -> CNDarray:
-        return np.convolve(input, self.__pulse, "same")
+    def __call__(self, signal: CNDarray, fc: float) -> CNDarray:
+        sig_shifted = np.multiply(
+            signal, np.exp(-2j * np.pi * fc / self.fsamp * np.arange(len(signal)))
+        )
+        sig_shifted = np.convolve(sig_shifted, self.pulse, "full")
+        # here start is different from pulse shaping
+        start = int((self.pulse_len) / 2)
+        sig_shifted = sig_shifted[start : (start + len(signal))]
+        return sig_shifted
 
     def filter_matlab(self, input: np.ndarray) -> np.ndarray:
-        signal = np.convolve(input, self.__pulse, "full")
-        return signal[:len(input)]
+        signal = np.convolve(input, self.pulse, "full")
+        return signal[: len(input)]
 
-    def pulse_shape(self, symbols: np.ndarray, fc: float):
-        sps = int(self.fsamp / self.fsymb)
-        signal = np.zeros(len(symbols) * sps, dtype=np.cdouble)
-        signal[::sps] = symbols
-        signal = np.convolve(signal, self.__pulse, "same")
+    def pulse_shape(self, symbols: CNDarray, fc: float) -> CNDarray:
+        signal = np.zeros(len(symbols) * self.sps, dtype=np.cdouble)
+        signal[:: self.sps] = symbols
+        signal = np.convolve(signal, self.pulse, "full")
+
+        start = int((self.pulse_len - self.sps) / 2)
+        signal = signal[start : (start + len(symbols) * self.sps)]
 
         sig_shifted = np.multiply(
             signal, np.exp(2j * np.pi * fc / self.fsamp * np.arange(len(signal)))
         )
         return sig_shifted
 
-    @property
-    def fsymb(self):
-        return self.__fsymb
 
-    @property
-    def fsamp(self):
-        return self.__fsamp
+class OFDMPseudoFilter(Filter):
+    """
+    Different from Sinc or Raised Cosine, this does not involve convolution.
+    Filtering, pulse shaping are done by IFFT, FFT.
+    """
 
-    @property
-    def rolloff(self):
-        return self.__rolloff
+    def __init__(self, fsymb: float, sps: int) -> None:
+        super().__init__()
+        self.fsymb = fsymb
+        self.sps = sps
+        self.fsamp = fsymb * sps
 
-    @property
-    def pulse(self):
-        return self.__pulse
+    def __call__(self, signal: CNDarray, fc: float) -> CNDarray:
+        sig_shifted = np.multiply(
+            signal, np.exp(-2j * np.pi * fc / self.fsamp * np.arange(len(signal)))
+        )
 
-    @property
-    def pulse_len(self):
-        return self.__pulse_len
+        sig_f = np.fft.fft(sig_shifted) / np.sqrt(len(signal))
+        n_carriers = int(len(signal) / self.sps)
+        sig_f = np.roll(sig_f, n_carriers // 2)
+        return sig_f
+
+    def pulse_shape(self, symbols: CNDarray, fc: float) -> CNDarray:
+        """
+        cyc prefix is not implemented
+        """
+        symbs_up = np.zeros((len(symbols) * self.sps), dtype=np.cdouble)
+        symbs_up[: len(symbols)] = symbols
+        symbs_up = np.roll(symbs_up, -int(len(symbols) / 2))
+        sig = np.fft.ifft(symbs_up) * np.sqrt(len(symbs_up))
+        sig_shifted = np.multiply(
+            sig, np.exp(2j * np.pi * fc / self.fsamp * np.arange(len(sig)))
+        )
+        return sig_shifted
 
 
 class SqrtRaisedCosFilterMat(SqrtRaisedCosFilter):
@@ -129,17 +212,15 @@ class SqrtRaisedCosFilterMat(SqrtRaisedCosFilter):
     behaves the same as comm.RaisedCosineReceiveFilter in MATLAB
     """
     def __init__(
-        self, fsymb: float, rolloff: float, fsamp: float, window_sz_in_symbols: int = 10
+        self, fsymb: float, rolloff: float, sps: int, window_sz_in_symbols: int = 10
     ):
-        super().__init__(fsymb, rolloff, fsamp, window_sz_in_symbols)
-        self.__pulse = super().pulse
-        self.__pulse = self.__pulse / np.linalg.norm(self.__pulse, 2)
-        self.__pulse_len = super().pulse_len
+        super().__init__(fsymb, rolloff, sps, window_sz_in_symbols)
+        self.pulse = self.pulse / np.linalg.norm(self.pulse, 2)
         self.gain = 1.0
         self.reset()
 
     def reset(self):
-        self.buffer = np.zeros(self.__pulse_len, dtype=np.cdouble)
+        self.buffer = np.zeros(self.pulse_len, dtype=np.cdouble)
 
     def set_gain(self, gain: float):
         self.gain = gain
@@ -149,16 +230,13 @@ class SqrtRaisedCosFilterMat(SqrtRaisedCosFilter):
         assert len(x.shape) == 1
 
         unfiltered = np.concatenate((self.buffer, x), axis=-1)
-        filtered = self.gain * np.convolve(unfiltered, self.__pulse, "full")
-        buf_len = self.__pulse_len
+        filtered = self.gain * np.convolve(unfiltered, self.pulse, "full")
+        buf_len = self.pulse_len
         res = filtered[buf_len: buf_len + len(x)]
         self.buffer = unfiltered[-buf_len:]
 
         return res
 
-    @property
-    def pulse(self):
-        return self.__pulse
 
 def load_matlab(path: str, ratio=1.0):
     def rep(s):
@@ -175,7 +253,7 @@ def load_matlab(path: str, ratio=1.0):
     return np.array(s[0:sz])
 
 
-def addNoise(rawS: np.ndarray, noise=0.0, random_seed=1):
+def add_noise(rawS: np.ndarray, noise=0.0, random_seed=1):
     if noise == 0.0:
         # print("No noise signals added, SNR=inf")
         return rawS, np.inf
@@ -275,7 +353,7 @@ def sinc_filter(
 
 
 def sinc_pulse_shape(
-    symbols: np.ndarray,
+    symbols: CNDarray,
     fsamp: float,
     fcenter: float,
     bandwidth: float,
@@ -326,56 +404,3 @@ def sinc_pulse_shape(
     )
 
     return sig_shifted
-
-
-def sinc_demodulate(
-    signal: np.ndarray,
-    fsamp: float,
-    fcenter: float,
-    sps: int,
-):
-    sig_shifted = np.multiply(
-        signal, np.exp(-2j * np.pi * fcenter / fsamp * np.arange(len(signal)))
-    )
-    pulse = np.sinc((np.arange(0, sps) - int(sps / 2)) / sps)
-    demod = [
-        np.sum(np.multiply(pulse, sig_shifted[i * sps : (i + 1) * sps]))
-        for i in range(int(len(signal) / sps))
-    ]
-    return np.array(demod)
-
-
-def sqrt_cos_filter(
-    signal: np.ndarray, fsamp: float, f_center: float, bandwidth: float, rolloff: float
-):
-    """
-    Given the multiband signal, use square-root raised cos filter to filter out
-    the signal which has carrier frequency `f_center` and bandwidth `bandwidth`
-    The whole procedure is in time domain. The output filtered discrete signal
-    has the same sampling frequency as the input wide multiband signal
-
-    #### parameters:
-
-    - `signal`: the input wide multiband signal in time domain
-    - `fsamp`: the sampling frequency of `signal`
-    - `f_center`: the carrier frequency of the target band, that is to say, the
-                central frequency of target subband signal
-    - `bandwidth`: the bandwidth of the target subband signal
-    - `rolloff`: roll-off factor of SqrtRaisedCosFilter
-
-    #### returns:
-    1. A numpy.ndarray representing the filtered signal in time domain. The
-    sampling frequency is still `fsamp`
-    """
-    fsymb = bandwidth / (1 + rolloff)
-
-    srcos_filter = SqrtRaisedCosFilter(fsymb=fsymb, rolloff=rolloff, fsamp=fsamp)
-
-    sig_shifted = np.zeros(len(signal), dtype=np.cdouble)
-    sig_shifted = np.multiply(
-        signal, np.exp(-2j * np.pi * f_center / fsamp * np.arange(len(signal)))
-    )
-
-    # the sample rate is still fsamp
-    sig_filtered = srcos_filter.filter(sig_shifted)
-    return sig_filtered
