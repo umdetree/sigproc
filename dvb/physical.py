@@ -5,7 +5,7 @@ import ctypes
 import os
 import platform
 
-CNDarray = np.ndarray[int, np.dtype[np.cdouble]]
+from prelude import CNDarray
 
 PL_HEADER_LEN = 90
 SOF_LEN = 26

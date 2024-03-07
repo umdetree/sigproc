@@ -1,16 +1,17 @@
+# filter and pulse shape
 import numpy as np
 from abc import abstractmethod, ABC
 
-CNDarray = np.ndarray[int, np.dtype[np.cdouble]]
+from prelude import CNDarray
 
 class Filter(ABC):
     @abstractmethod
     def __call__(self, signal: CNDarray, fc: float) -> CNDarray:
-        raise NotImplemented
+        raise NotImplementedError
 
     @abstractmethod
     def pulse_shape(self, symbols: CNDarray, fc: float) -> CNDarray:
-        raise NotImplemented
+        raise NotImplementedError
 
 
 class SincFilter(Filter):
@@ -307,100 +308,3 @@ def awgn_scale(pure: np.ndarray, snr: float | None) -> CNDarray:
     noise_scale = sig_p_sqrt / (10 ** (snr / 20)) / np.sqrt(2)
 
     return noise_scale
-
-
-def sinc_filter(
-    signal: np.ndarray,
-    fsamp: float,
-    f_center: float,
-    bandwidth: float,
-    window_sz: int = 10,
-) -> np.ndarray:
-    """
-    Given the multiband signal, filter out the signal of the desired band. This
-    is done by multipling a time varing signal to shift the frequency, and
-    convolving with sinc function
-
-    #### parameters:
-
-    - `signal`: The input multiband signal in `time` domain
-    - `fsamp`: the sampling frequency of `signal`
-    - `f_center`: the carrier frequency of the target band, that is to say, the
-      central frequency of the target subband signal
-    - `bandwidth`: the bandwidth of the target subband signal. In the context
-      of sinc filter, this is also the symbol rate
-    - `window_sz`: sinc function is restricted within a limited window. This
-      parameter indicates the number of symbols the window can hold
-
-    #### returns:
-    1. A numpy.ndarray representing the filtered signal in time domain. The
-    sampling frequency is still `fsamp`
-    """
-    fsymb = bandwidth
-
-    window_sz = window_sz * int(fsamp / fsymb + 0.5)
-    parity = window_sz % 2
-    pulse = np.zeros(window_sz + 1 - parity, dtype=np.cdouble)
-
-    half = int(len(pulse) / 2)
-    pulse = np.sinc(fsymb * (np.arange(0, len(pulse), 1) - half) / fsamp)
-
-    sig_shifted = np.multiply(
-        signal, np.exp(-2j * np.pi * f_center / fsamp * np.arange(len(signal)))
-    )
-
-    return fsymb / fsamp * np.convolve(sig_shifted, pulse, "same")
-
-
-def sinc_pulse_shape(
-    symbols: CNDarray,
-    fsamp: float,
-    fcenter: float,
-    bandwidth: float,
-    window_sz: int = 10,
-):
-    """
-    Use sinc function to turn complex symbols into inband complex signal. Sinc
-    function is convolved with `symbols`. The time interval of output complex
-    array is determined by `fsamp`.
-
-    ### parameters:
-    - `symbols`: input complex symbols, for example, QPSK, 8PSK
-    - `fsamp`: the sampling rate of output signal, since the output signal is
-      in discrete form
-    - `fcenter`: the frequency center of output signal. It is a little bit like
-      up-convertion, but this function simply shifts baseband signal to
-      `fcenter`, so it is more like inband
-    - `bandwidth`: the bandwidth of output signal. For this sinc pulse shaping,
-      bandwidth is equal to symbol rate
-    - `window_sz`: default 10. length of sinc function represented in array
-      form in terms of symbol length.
-    """
-    fsymb = bandwidth
-    # samples per symbol
-    sps = int(fsamp / fsymb + 0.5)
-
-    window_sz = min(window_sz * sps, len(symbols) * sps)
-    parity = window_sz % 2
-    # make sure pulse_len is odd, so the pulse array is symmetric and contains
-    # peek
-    pulse_len = window_sz + 1 - parity
-    # sinc pulse whose bandwidth and symbol rate is fsymb
-    pulse = np.sinc((np.arange(0, pulse_len) - int(pulse_len / 2)) * fsymb / fsamp)
-
-    # upsample
-    signal = np.zeros(len(symbols) * sps, dtype=np.cdouble)
-    signal[::sps] = symbols
-    # convolved signal has length of int(pulse_len / 2) * 2 + len(symbols) * sps
-    signal = fsymb / fsamp * np.convolve(signal, pulse, "full")
-
-    # the peek of the first symbol is at len(pulse) / 2, and the pulse
-    # representing the first symbol is centered at the peek with length of sps
-    start = int((pulse_len - sps) / 2)
-    signal = signal[start : (start + len(symbols) * sps)]
-    # shift to fcenter
-    sig_shifted = np.multiply(
-        signal, np.exp(2j * np.pi * fcenter / fsamp * np.arange(len(signal)))
-    )
-
-    return sig_shifted
