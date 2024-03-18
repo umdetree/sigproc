@@ -45,6 +45,14 @@ def parse_signal_bits(bits: np.ndarray):
     length = int.from_bytes(byte_array, "big")
     print("LENGTH:", length)
 
+    print("If VT/VHT: ")
+    duration = (length + 3) / 3 * 4 + 20
+    print(f"duration: {duration} us")
+
+    print("If HE: ")
+    duration = (length + 3 + 2) / 3 * 4 + 20
+    print(f"duration: {duration} us")
+
 
 def test_interleave_signal():
     wave_struct = WaveStruct("./wifi/normal.mat")
@@ -60,9 +68,12 @@ def test_interleave_signal():
 
 def test_decode_signal():
     # file = "./wifi/mcs3_501.mat"
-    file = "./wifi/40ht_mcs2_1024.mat"
+    # file = "./wifi/40ht_mcs2_1024.mat"
+    # file = "./wifi/vht_default.mat"
+    file = "./wifi/40he_default.mat"
     print(file)
     wave_struct = WaveStruct(file)
+    print(f"duration: {len(wave_struct.waveform) / wave_struct.fs * 1e6} us")
     raw_bits = wave_struct.lsig_raw_bits(0)
     deinterleaved_bits = deinterleave(raw_bits, n_bpsc=1)
     decoded_bits = viterbi.decode(deinterleaved_bits)
@@ -111,4 +122,3 @@ def main():
 
 if __name__ == "__main__":
     test_decode_signal()
-    test_interleave_signal()
