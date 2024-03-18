@@ -3,15 +3,17 @@ import numpy as np
 
 from prelude import CNDarray
 
+
 def autocorrelate(waveform: CNDarray, ws: int, n_st: int, n: int):
-    rs = np.sum(waveform[n: n + ws] * waveform[n + n_st: n + n_st + ws].conj())
-    d = np.sum(waveform[n: n + ws] * waveform[n: n + ws].conj())
+    rs = np.sum(waveform[n : n + ws] * waveform[n + n_st : n + n_st + ws].conj())
+    d = np.sum(waveform[n : n + ws] * waveform[n : n + ws].conj())
     return rs / d
+
 
 class WaveStruct:
     def __init__(self, path: str) -> None:
         wifi_mat = scipy.io.loadmat(path)["waveStruct"]
-        self.type: str = wifi_mat["type"][0,0][0]
+        self.type: str = wifi_mat["type"][0, 0][0]
         self.fs: float = wifi_mat["Fs"][0, 0][0][0]
         self.n_20mhz = int(round(self.fs / 20e6))
         self.waveform: CNDarray = wifi_mat["waveform"][0, 0].flatten()
@@ -34,17 +36,23 @@ class WaveStruct:
 
         symbs_start = -32 * self.n_20mhz
         symbs_end = symbs_start + 64
-        symbs = lsig_f[symbs_start : symbs_end] if symbs_end < 0 else np.concatenate((lsig_f[symbs_start:], lsig_f[:symbs_end]))
+        symbs = (
+            lsig_f[symbs_start:symbs_end]
+            if symbs_end < 0
+            else np.concatenate((lsig_f[symbs_start:], lsig_f[:symbs_end]))
+        )
 
         symbs = np.roll(symbs, 32)
         # remove pilot
-        symbs = np.concatenate((
-            symbs[-26:-21],
-            symbs[-20:-7],
-            symbs[-6:],
-            symbs[1:7],
-            symbs[8:21],
-            symbs[22:27],
-        ))
+        symbs = np.concatenate(
+            (
+                symbs[-26:-21],
+                symbs[-20:-7],
+                symbs[-6:],
+                symbs[1:7],
+                symbs[8:21],
+                symbs[22:27],
+            )
+        )
 
         return np.array(symbs.real > 0, dtype=np.uint8)

@@ -4,8 +4,10 @@ import matplotlib.pyplot as plt
 from wifi.mat_wave_struct import WaveStruct
 import wifi.viterbi as viterbi
 
+
 def indices_of_symbol(n: int):
     return np.arange(64) + 400 + n * 80 + 16
+
 
 def interleave(raw_bits: np.ndarray, n_bpsc: int):
     # carried bits per symbol
@@ -18,6 +20,7 @@ def interleave(raw_bits: np.ndarray, n_bpsc: int):
     res[j_ids] = raw_bits
     return res
 
+
 def deinterleave(raw_bits: np.ndarray, n_bpsc: int):
     # carried bits per symbol
     n_cbps = len(raw_bits)
@@ -28,6 +31,7 @@ def deinterleave(raw_bits: np.ndarray, n_bpsc: int):
     res = np.zeros_like(raw_bits, dtype=int)
     res[k_ids] = raw_bits
     return res
+
 
 def parse_signal_bits(bits: np.ndarray):
     parity = bits[:17].sum() % 2
@@ -41,6 +45,7 @@ def parse_signal_bits(bits: np.ndarray):
     length = int.from_bytes(byte_array, "big")
     print("LENGTH:", length)
 
+
 def test_interleave_signal():
     wave_struct = WaveStruct("./wifi/normal.mat")
     raw_bits = wave_struct.lsig_raw_bits(0)
@@ -52,6 +57,7 @@ def test_interleave_signal():
     assert np.all(reinterleaved_bits == raw_bits)
     print("test interleave pass")
 
+
 def test_decode_signal():
     # file = "./wifi/mcs3_501.mat"
     file = "./wifi/40ht_mcs2_1024.mat"
@@ -62,6 +68,7 @@ def test_decode_signal():
     decoded_bits = viterbi.decode(deinterleaved_bits)
     print(decoded_bits)
     parse_signal_bits(decoded_bits)
+
 
 def main():
     wave_struct = WaveStruct("./wifi/mcs3_1024.mat")
@@ -76,7 +83,7 @@ def main():
     signal_end = 400
     print(f"signal start: {signal_start}")
     print(f"signal end: {signal_end}")
-    signal = waveform[2*signal_start:2*signal_end]
+    signal = waveform[2 * signal_start : 2 * signal_end]
     signal_f = np.fft.fft(signal)
     signal_f = np.concatenate((signal_f[-26:], signal_f[1:26]))
     plt.plot(signal_f.real)
@@ -88,16 +95,19 @@ def main():
     for n in range(20):
         symbol = waveform[indices_of_symbol(n)] * 1.0
         symbol = np.fft.fft(symbol)
-        symbol = np.concatenate((
-            symbol[-26:-21],
-            symbol[-20:-7],
-            symbol[-6:],
-            symbol[1:7],
-            symbol[8:21],
-            symbol[22:26],
-        ))
+        symbol = np.concatenate(
+            (
+                symbol[-26:-21],
+                symbol[-20:-7],
+                symbol[-6:],
+                symbol[1:7],
+                symbol[8:21],
+                symbol[22:26],
+            )
+        )
         plt.plot(symbol.real, symbol.imag, "b.")
     plt.show()
+
 
 if __name__ == "__main__":
     test_decode_signal()

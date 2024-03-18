@@ -1,7 +1,10 @@
 import numpy as np
 import commpy.channelcoding.convcode as convcode
 
-__trellis = convcode.Trellis(np.array([6]), np.array([[0o133, 0o171]]), polynomial_format="Matlab")
+__trellis = convcode.Trellis(
+    np.array([6]), np.array([[0o133, 0o171]]), polynomial_format="Matlab"
+)
+
 
 def encode(input: np.ndarray):
     """
@@ -15,6 +18,7 @@ def encode(input: np.ndarray):
     1/2 convolutional encoded bits
     """
     return convcode.conv_encode(input[:-6], __trellis)
+
 
 def decode(input: np.ndarray):
     """
@@ -55,10 +59,9 @@ def __encode_decode_test():
     assert np.all(decoded_bits == input)
 
     encoded_bits = my_encode(input)
-    assert np.all(
-        encoded_bits == gt_encoded
-    )
+    assert np.all(encoded_bits == gt_encoded)
     print("test convolutional encoding pass")
+
 
 if __name__ == "__main__":
     __encode_decode_test()
