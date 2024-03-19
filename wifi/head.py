@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 
 from wifi.mat_wave_struct import WaveStruct
 import wifi.viterbi as viterbi
+from prelude import awgn
 
 
 def indices_of_symbol(n: int):
@@ -22,6 +23,16 @@ def interleave(raw_bits: np.ndarray, n_bpsc: int):
 
 
 def deinterleave(raw_bits: np.ndarray, n_bpsc: int):
+    """
+    # parameters
+
+    - `raw_bits`: interleaved bits
+    - `n_bpsc`: number of bits per carrier. For example, n_bpsc = 2 for QPSK
+
+    # return
+
+    deinterleaved bits
+    """
     # carried bits per symbol
     n_cbps = len(raw_bits)
     s = max(n_bpsc // 2, 1)
@@ -33,7 +44,7 @@ def deinterleave(raw_bits: np.ndarray, n_bpsc: int):
     return res
 
 
-def parse_signal_bits(bits: np.ndarray):
+def parse_lsig_bits(bits: np.ndarray):
     parity = bits[:17].sum() % 2
     if parity != bits[17]:
         raise ValueError("signal parity check failed")
@@ -56,34 +67,48 @@ def parse_signal_bits(bits: np.ndarray):
 
 def test_interleave_signal():
     wave_struct = WaveStruct("./wifi/normal.mat")
-    raw_bits = wave_struct.lsig_raw_bits(0)
+    raw_bits = wave_struct.sig_raw_bits(0, "L-SIG")
     raw_bits = np.tile(raw_bits, 1)
+    print("received raw bits:")
     print(raw_bits)
     deinterleaved_bits = deinterleave(raw_bits, n_bpsc=1)
+    print("deinterleaved bits:")
     print(deinterleaved_bits)
     reinterleaved_bits = interleave(deinterleaved_bits, n_bpsc=1)
     assert np.all(reinterleaved_bits == raw_bits)
     print("test interleave pass")
+    print()
 
 
 def test_decode_signal():
     # file = "./wifi/mcs3_501.mat"
-    # file = "./wifi/40ht_mcs2_1024.mat"
+    file = "./wifi/40ht_mcs2_1024.mat"
     # file = "./wifi/vht_default.mat"
-    file = "./wifi/40he_default.mat"
+    # file = "./wifi/40he_default.mat"
     print(file)
     wave_struct = WaveStruct(file)
     print(f"duration: {len(wave_struct.waveform) / wave_struct.fs * 1e6} us")
-    raw_bits = wave_struct.lsig_raw_bits(0)
+    raw_bits = wave_struct.sig_raw_bits(0, "L-SIG")
     deinterleaved_bits = deinterleave(raw_bits, n_bpsc=1)
     decoded_bits = viterbi.decode(deinterleaved_bits)
     print(decoded_bits)
-    parse_signal_bits(decoded_bits)
+    parse_lsig_bits(decoded_bits)
+
+def test_htsig():
+    file = "./wifi/40ht_mcs2_1024.mat"
+    print(file)
+    wave_struct = WaveStruct(file)
+    print(f"duration: {len(wave_struct.waveform) / wave_struct.fs * 1e6} us")
+    raw_bits = wave_struct.sig_raw_bits(0, "HT-SIG1")
+    deinterleaved_bits = deinterleave(raw_bits, n_bpsc=1)
+    decoded_bits = viterbi.decode(deinterleaved_bits)
+    print(decoded_bits)
+    # parse_signal_bits(decoded_bits)
 
 
 def main():
     wave_struct = WaveStruct("./wifi/mcs3_1024.mat")
-    waveform = wave_struct.waveform * 1.0
+    waveform = awgn(wave_struct.waveform * 1.0, 9)
     start_id = wave_struct.find_start()
     print(f"start id: {start_id}")
     # matlab is good
@@ -121,4 +146,7 @@ def main():
 
 
 if __name__ == "__main__":
-    test_decode_signal()
+    test_htsig()
+    # test_interleave_signal()
+    # test_decode_signal()
+    # main()

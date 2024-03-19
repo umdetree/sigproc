@@ -28,18 +28,30 @@ class WaveStruct:
         id = np.argmax(np.abs(rs))
         return id
 
-    def lsig_raw_bits(self, start_id: int):
-        lsig_start = int(round(16.8e-6 * self.fs))
-        lsig_end = int(round(20e-6 * self.fs))
-        lsig_waveform = self.waveform[start_id + np.arange(lsig_start, lsig_end)]
-        lsig_f = np.fft.fft(lsig_waveform)
+    def sig_raw_bits(self, start_id, field: str):
+        sig_start = 0
+        sig_end = 0
+        if field == "L-SIG":
+            sig_start = int(round(16.8e-6 * self.fs))
+            sig_end = int(round(20e-6 * self.fs))
+        elif field == "HT-SIG1":
+            sig_start = int(round(20.8e-6 * self.fs))
+            sig_end = int(round(24e-6 * self.fs))
+        elif field == "HT-SIG2":
+            sig_start = int(round(24.8e-6 * self.fs))
+            sig_end = int(round(28e-6 * self.fs))
+        else:
+            raise ValueError(f"field \"{field}\" not valid")
+
+        sig_waveform = self.waveform[start_id + np.arange(sig_start, sig_end)]
+        sig_f = np.fft.fft(sig_waveform)
 
         symbs_start = -32 * self.n_20mhz
         symbs_end = symbs_start + 64
         symbs = (
-            lsig_f[symbs_start:symbs_end]
+            sig_f[symbs_start:symbs_end]
             if symbs_end < 0
-            else np.concatenate((lsig_f[symbs_start:], lsig_f[:symbs_end]))
+            else np.concatenate((sig_f[symbs_start:], sig_f[:symbs_end]))
         )
 
         symbs = np.roll(symbs, 32)
@@ -55,4 +67,7 @@ class WaveStruct:
             )
         )
 
-        return np.array(symbs.real > 0, dtype=np.uint8)
+        if field == "L-SIG":
+            return np.array(symbs.real > 0, dtype=np.uint8)
+        else:
+            return np.array(symbs.imag > 0, dtype=np.uint8)
