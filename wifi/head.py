@@ -95,14 +95,19 @@ def test_decode_signal():
     parse_lsig_bits(decoded_bits)
 
 def test_htsig():
-    file = "./wifi/40ht_mcs2_1024.mat"
+    file = "./wifi/vht_default.mat"
+    # file = "./wifi/40ht_mcs2_1024.mat"
     print(file)
     wave_struct = WaveStruct(file)
     print(f"duration: {len(wave_struct.waveform) / wave_struct.fs * 1e6} us")
-    raw_bits = wave_struct.sig_raw_bits(0, "HT-SIG1")
-    deinterleaved_bits = deinterleave(raw_bits, n_bpsc=1)
+    raw_bits1 = wave_struct.sig_raw_bits(0, "VHT-SIG-A1")
+    raw_bits2 = wave_struct.sig_raw_bits(0, "VHT-SIG-A2")
+    deinterleaved_bits1 = deinterleave(raw_bits1, n_bpsc=1)
+    deinterleaved_bits2 = deinterleave(raw_bits2, n_bpsc=1)
+    deinterleaved_bits = np.concatenate((deinterleaved_bits1, deinterleaved_bits2))
     decoded_bits = viterbi.decode(deinterleaved_bits)
-    print(decoded_bits)
+    print(decoded_bits[:24])
+    print(decoded_bits[24:])
     # parse_signal_bits(decoded_bits)
 
 

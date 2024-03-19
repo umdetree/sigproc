@@ -34,10 +34,10 @@ class WaveStruct:
         if field == "L-SIG":
             sig_start = int(round(16.8e-6 * self.fs))
             sig_end = int(round(20e-6 * self.fs))
-        elif field == "HT-SIG1":
+        elif field == "HT-SIG1" or field == "VHT-SIG-A1":
             sig_start = int(round(20.8e-6 * self.fs))
             sig_end = int(round(24e-6 * self.fs))
-        elif field == "HT-SIG2":
+        elif field == "HT-SIG2" or field == "VHT-SIG-A2":
             sig_start = int(round(24.8e-6 * self.fs))
             sig_end = int(round(28e-6 * self.fs))
         else:
@@ -67,7 +67,7 @@ class WaveStruct:
             )
         )
 
-        if field == "L-SIG":
+        if field == "L-SIG" or field == "VHT-SIG-A1":
             return np.array(symbs.real > 0, dtype=np.uint8)
         else:
             return np.array(symbs.imag > 0, dtype=np.uint8)
