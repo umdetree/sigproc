@@ -12,7 +12,8 @@ def autocorrelate(waveform: CNDarray, ws: int, n_st: int, n: int):
 
 class WaveStruct:
     def __init__(self, path: str) -> None:
-        wifi_mat = scipy.io.loadmat(path)["waveStruct"]
+        wifi_mat = scipy.io.loadmat(path)
+        wifi_mat = wifi_mat["waveStruct"]
         self.type: str = wifi_mat["type"][0, 0][0]
         self.fs: float = wifi_mat["Fs"][0, 0][0][0]
         self.n_20mhz = int(round(self.fs / 20e6))

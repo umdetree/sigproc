@@ -1,14 +1,72 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import scipy.io
 
-from wifi.mat_wave_struct import WaveStruct
-import wifi.viterbi as viterbi
-from prelude import awgn
+from ..wifi.mat_wave_struct import WaveStruct
+from ..wifi import viterbi
+from ..prelude import CNDarray
 
 
 def indices_of_symbol(n: int):
     return np.arange(64) + 400 + n * 80 + 16
 
+def autocorrelate(waveform: CNDarray, ws: int, n_st: int, n: int):
+    rs = np.sum(waveform[n : n + ws] * waveform[n + n_st : n + n_st + ws].conj())
+    d = np.sum(waveform[n : n + ws] * waveform[n : n + ws].conj())
+    return rs / d
+
+def find_start(waveform: CNDarray, fs: float) -> np.intp:
+    n_st = int(round(0.8e-6 * fs))
+    rs = [autocorrelate(waveform, 9 * n_st, n_st, n) for n in range(10 * n_st)]
+    id = np.argmax(np.abs(rs))
+    return id
+
+
+def sig_raw_bits(waveform: CNDarray, bw: float, oversampling_rate: float, start_id: np.intp | int, field: str):
+    sig_start = 0
+    sig_end = 0
+    fs = bw * oversampling_rate
+    if field == "L-SIG":
+        sig_start = int(round(16.8e-6 * fs))
+        sig_end = int(round(20e-6 * fs))
+    elif field == "HT-SIG1" or field == "VHT-SIG-A1":
+        sig_start = int(round(20.8e-6 * fs))
+        sig_end = int(round(24e-6 * fs))
+    elif field == "HT-SIG2" or field == "VHT-SIG-A2":
+        sig_start = int(round(24.8e-6 * fs))
+        sig_end = int(round(28e-6 * fs))
+    else:
+        raise ValueError(f"field \"{field}\" not valid")
+
+    sig_waveform = waveform[start_id + np.arange(sig_start, sig_end)]
+    sig_f = np.fft.fft(sig_waveform)
+
+    n_20mhz = int(round(bw) / 20e6)
+    symbs_start = -32 * n_20mhz
+    symbs_end = symbs_start + 64
+    symbs = (
+        sig_f[symbs_start:symbs_end]
+        if symbs_end < 0
+        else np.concatenate((sig_f[symbs_start:], sig_f[:symbs_end]))
+    )
+
+    symbs = np.roll(symbs, 32)
+    # remove pilot
+    symbs = np.concatenate(
+        (
+            symbs[-26:-21],
+            symbs[-20:-7],
+            symbs[-6:],
+            symbs[1:7],
+            symbs[8:21],
+            symbs[22:27],
+        )
+    )
+
+    if field == "L-SIG" or field == "VHT-SIG-A1":
+        return np.array(symbs.real > 0, dtype=np.uint8)
+    else:
+        return np.array(symbs.imag > 0, dtype=np.uint8)
 
 def interleave(raw_bits: np.ndarray, n_bpsc: int):
     # carried bits per symbol
@@ -94,6 +152,15 @@ def test_decode_signal():
     print(decoded_bits)
     parse_lsig_bits(decoded_bits)
 
+def test_decode_nonHT(waveform: CNDarray):
+    fs = 20e6
+    start_id = find_start(waveform, fs)
+    raw_bits = sig_raw_bits(waveform, fs, 1, start_id, "L-SIG")
+    deinterleaved_bits = deinterleave(raw_bits, n_bpsc=1)
+    decoded_bits = viterbi.decode(deinterleaved_bits)
+    print(decoded_bits)
+    parse_lsig_bits(decoded_bits)
+
 def test_htsig():
     file = "./wifi/vht_default.mat"
     # file = "./wifi/40ht_mcs2_1024.mat"
@@ -112,10 +179,12 @@ def test_htsig():
 
 
 def main():
-    wave_struct = WaveStruct("./wifi/mcs3_1024.mat")
-    waveform = awgn(wave_struct.waveform * 1.0, 9)
-    start_id = wave_struct.find_start()
-    print(f"start id: {start_id}")
+    # wave_struct = WaveStruct("./sigproc/wifi/wifi-non-HT.mat")
+    # waveform = awgn(wave_struct.waveform * 1.0, None)
+    waveform = scipy.io.loadmat("./sigproc/wifi/wifi-non-HT.mat")["res"].T[0].flatten()
+    # start_id = wave_struct.find_start()
+    # print(f"start id: {start_id}")
+    start_id = 0
     # matlab is good
     assert start_id == 0
 
@@ -124,7 +193,7 @@ def main():
     signal_end = 400
     print(f"signal start: {signal_start}")
     print(f"signal end: {signal_end}")
-    signal = waveform[2 * signal_start : 2 * signal_end]
+    signal = waveform[signal_start : signal_end]
     signal_f = np.fft.fft(signal)
     signal_f = np.concatenate((signal_f[-26:], signal_f[1:26]))
     plt.plot(signal_f.real)
@@ -133,7 +202,7 @@ def main():
     plt.plot(signal_f.real, signal_f.imag, ".")
     plt.show()
 
-    for n in range(20):
+    for n in range(5):
         symbol = waveform[indices_of_symbol(n)] * 1.0
         symbol = np.fft.fft(symbol)
         symbol = np.concatenate(
@@ -151,7 +220,9 @@ def main():
 
 
 if __name__ == "__main__":
-    test_htsig()
+    # test_htsig()
     # test_interleave_signal()
     # test_decode_signal()
     # main()
+    waveform = scipy.io.loadmat("./sigproc/wifi/wifi-non-HT.mat")["res"].T[2].flatten()
+    test_decode_nonHT(waveform)
