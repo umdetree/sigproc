@@ -224,5 +224,5 @@ if __name__ == "__main__":
     # test_interleave_signal()
     # test_decode_signal()
     # main()
-    waveform = scipy.io.loadmat("./sigproc/wifi/wifi-non-HT.mat")["res"].T[2].flatten()
+    waveform = scipy.io.loadmat("./sigproc/wifi/wifi-non-HT.mat")["res"].T[0].flatten()
     test_decode_nonHT(waveform)
