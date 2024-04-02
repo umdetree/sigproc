@@ -1,7 +1,7 @@
 import scipy.io
 import numpy as np
 
-from prelude import CNDarray
+from ..prelude import CNDarray
 
 
 def autocorrelate(waveform: CNDarray, ws: int, n_st: int, n: int):
