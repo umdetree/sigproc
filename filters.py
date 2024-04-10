@@ -2,7 +2,7 @@
 import numpy as np
 from abc import abstractmethod, ABC
 
-from prelude import CNDarray
+from .prelude import CNDarray
 
 class Filter(ABC):
     @abstractmethod

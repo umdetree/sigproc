@@ -14,27 +14,27 @@ def sample(
     signal,
     time: float,
     bandwidth: float,
-    nBands: int,
-    nChannels: int,
+    n_bands: int,
+    n_chs: int,
     offsets: list[int] | None = None,
-    scheme="continuous",
+    scheme="discrete",
 ):
     """
     #### parameters:
 
-    - `signal`: input signals. When `scheme` is 'continuous', `signal` is a
+    - `signal`: input signals. When `scheme` is `continuous`, `signal` is a
       function of time, Reals to Complex. When `scheme` is 'discrete', `signal`
       is a numpy.ndarray containing discrete signals, whose sampling frequency
       is indicated by `bandwidth`
     - `time`: sampling time duration, only used when `scheme` is 'continuous'
-    - `bandwidth`: bandwidth W of the input signal. When `scheme` is
-      'contiuous', `bandwidth` is viewed as the sampling frequency of the input
-      signal. `bandwidth` will not be used for `discrete` scheme
-    - `nBands`: Number of bands L. The cognitive radio system divides the
+    - `bandwidth`: bandwidth W of the input signal, only used when `scheme` is
+      'contiuous', where `bandwidth` is viewed as the sampling frequency of the input
+      signal.
+    - `n_bands`: Number of bands L. The cognitive radio system divides the
       shared spectrum into L orthogonal channels, so the bandwidth of each
       channel is B = W/L. The sampling interval for each band is `nBands` times
       input discrete signal sampling interval
-    - `nChannels`: number of parallel channels for sampling
+    - `n_chs`: number of parallel sampling channels
     - `offsets`: offsets of each sampling channel, integers
     - `scheme`: 'continuous' by default. When set as 'continuous', use
       `bandwidth` to indicate the sampling frequency of the input signal
@@ -46,44 +46,44 @@ def sample(
     are non-negative integers
     2. offsets
     """
-    if nChannels > nBands:
+    if n_chs > n_bands:
         raise ValueError("nBands should be greater than or equal to nChannels")
 
     if offsets is not None:
-        if len(offsets) < nChannels:
+        if len(offsets) < n_chs:
             raise ValueError(
                 "length of offsets should not be less than sampling channels"
             )
-        elif np.max(offsets) >= nBands or np.min(offsets) < 0:
+        elif np.max(offsets) >= n_bands or np.min(offsets) < 0:
             raise ValueError("offset value should be in [0, L-1]")
 
-        offsets = list(offsets[:nChannels])
+        offsets = list(offsets[:n_chs])
     else:
         # construct offsets randomly
         rng = np.random.RandomState(43)
-        pool = np.arange(0, nBands, 1)
+        pool = np.arange(0, n_bands, 1)
         # np.random.shuffle(pool)
         rng.shuffle(pool)
-        offsets = list(pool[0:nChannels])
+        offsets = list(pool[0:n_chs])
 
-    samplingRes = np.zeros((1))
+    sampling_res = np.zeros((1))
     if scheme == "continuous":
         T = 1 / bandwidth
-        Ts = T * nBands
-        samplingRes = np.zeros((nChannels, int(np.floor(time / Ts))), dtype=np.cdouble)
-        for i in range(nChannels):
-            for j in range(len(samplingRes[i])):
-                samplingRes[i][j] = signal(j * Ts + offsets[i] * T)
+        Ts = T * n_bands
+        sampling_res = np.zeros((n_chs, int(np.floor(time / Ts))), dtype=np.cdouble)
+        for i in range(n_chs):
+            for j in range(len(sampling_res[i])):
+                sampling_res[i][j] = signal(j * Ts + offsets[i] * T)
 
     elif scheme == "discrete":
-        col = int(np.floor(len(signal) / nBands))
-        samplingRes = np.zeros((nChannels, col), dtype=np.cdouble)
-        for i in range(nChannels):
-            samplingRes[i] = signal[offsets[i] :: nBands][:col]
+        col = int(np.floor(len(signal) / n_bands))
+        sampling_res = np.zeros((n_chs, col), dtype=np.cdouble)
+        for i in range(n_chs):
+            sampling_res[i] = signal[offsets[i] :: n_bands][:col]
     else:
         raise NotImplementedError("scheme not supported")
 
-    return samplingRes, offsets
+    return sampling_res, offsets
 
 
 def dft(signals: np.ndarray, offsets: list[int], nBands: int):
