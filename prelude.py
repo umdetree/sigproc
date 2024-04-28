@@ -46,7 +46,6 @@ def awgn(pure: np.ndarray, snr: float | None, random_seed=None) -> CNDarray:
     if snr is None:
         return pure
 
-    sz = len(pure)
     # sig_p_sqrt = np.linalg.norm(pure) / np.sqrt(sz)
     sig_p_sqrt = np.sqrt(np.mean(np.abs(pure) ** 2))
     noise_scale = sig_p_sqrt / (10 ** (snr / 20)) / np.sqrt(2)
@@ -55,8 +54,8 @@ def awgn(pure: np.ndarray, snr: float | None, random_seed=None) -> CNDarray:
     if random_seed is not None:
         rng = np.random.RandomState(random_seed)
 
-    n = rng.normal(size=(sz), scale=1.0) + 1j * rng.normal(
-        size=(sz),
+    n = rng.normal(size=pure.shape, scale=1.0) + 1j * rng.normal(
+        size=pure.shape,
         scale=1.0,
     )
     n = n * noise_scale
