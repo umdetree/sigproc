@@ -1,11 +1,11 @@
-# physical layer
+# physical layer of DVB-S2X
 import numpy as np
 import sys
 import ctypes
 import os
 import platform
 
-from prelude import CNDarray
+from ..prelude import CNDarray
 
 PL_HEADER_LEN = 90
 SOF_LEN = 26
