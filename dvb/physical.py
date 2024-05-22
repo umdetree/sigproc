@@ -117,7 +117,7 @@ def find_header_v2(symbols: np.ndarray):
     c_plscs[0::2] = c_plsc1
     c_plscs[1::2] = c_plsc2
 
-    corr = np.abs(c_sofs + c_plscs)
+    corr = np.abs(c_sofs) + np.abs(c_plscs)
     max_val = np.max(corr)
     sync_id = np.where(corr / max_val > 0.75)[0][:2]
     return sync_id
