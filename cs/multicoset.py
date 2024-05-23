@@ -8,6 +8,10 @@ DEFAULT_N_BANDS = 40
 # DEFAULT_OFFSETS = [16, 11, 1, 0, 27, 24, 37, 31]
 DEFAULT_OFFSETS = [2, 11, 38, 7, 22, 24, 0, 16, 9, 17, 10, 21, 23, 33, 4, 34, 37, 18, 30, 32, 8, 15, 5, 3, 27, 12, 6, 20, 29, 28, 1, 13, 35, 36, 19, 31, 26, 14, 25, 39]
 DEFAULT_OFFSETS_SORTED_IDS = np.argsort(DEFAULT_OFFSETS)
+DEFAULT_BEST_OFFSETS = {
+    3: [1, 4, 8],
+    4: [2, 3, 6, 15],
+}
 
 
 def sample(
@@ -96,7 +100,8 @@ def dft(signals: np.ndarray, offsets: list[int], nBands: int):
     2. The measurement matrix A with shape(nChannels, nBands)
     """
     # DTFT * Ts = DTF, so the coeffecient 1/LT will be eleminated
-    # To get matrix Y, we need to use the coeffecients to time the fft results.
+    # To get matrix Y, we need to use the coeffecients to multiply the fft
+    # results.
 
     Y_aux = np.matrix(offsets).T * np.matrix(np.arange(0, signals.shape[1], 1))
     YCoeff = np.exp(-2j * np.pi / (nBands * signals.shape[1]) * Y_aux)
@@ -121,3 +126,39 @@ def get_correlation(A: np.matrix) -> float:
         corr[i, i] = 0
 
     return np.max(np.abs(corr)) / (np.linalg.norm(A) ** 2)
+
+
+def find_best_offsets():
+    def combine(n, k):
+        result = []
+        current = []
+        backtrack(result, current, n, k, 0)
+        return result
+
+    def backtrack(result, current, n, k, start):
+        if len(current) == k:
+            result.append(current[:])
+            return
+
+        for i in range(start, n):
+            current.append(i)
+            backtrack(result, current, n, k, i + 1)
+            current.pop()
+
+    all_offsets = combine(40, 4)
+    nBands = 40
+    min_offsets = None
+    min_corr = np.inf
+    for offsets in all_offsets:
+        A_aux = np.matrix(offsets).T * np.matrix(np.arange(0, nBands, 1))
+        A = np.matrix(np.exp(2j * np.pi * A_aux / nBands))
+        corr = get_correlation(A)
+        if corr < min_corr:
+            min_corr = corr
+            min_offsets = offsets
+
+    print(min_offsets)
+    print(min_corr)
+
+if __name__ == "__main__":
+    find_best_offsets()
