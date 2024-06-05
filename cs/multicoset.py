@@ -11,6 +11,7 @@ DEFAULT_OFFSETS_SORTED_IDS = np.argsort(DEFAULT_OFFSETS)
 DEFAULT_BEST_OFFSETS = {
     3: [1, 4, 8],
     4: [2, 3, 6, 15],
+    5: [2, 4, 5, 10, 20],
 }
 
 
