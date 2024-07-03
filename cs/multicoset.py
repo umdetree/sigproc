@@ -104,20 +104,26 @@ def dft(signals: np.ndarray, offsets: list[int], nBands: int):
     # To get matrix Y, we need to use the coeffecients to multiply the fft
     # results.
 
-    Y_aux = np.matrix(offsets).T * np.matrix(np.arange(0, signals.shape[1], 1))
-    YCoeff = np.exp(-2j * np.pi / (nBands * signals.shape[1]) * Y_aux)
+    Y_aux = np.array(offsets).reshape(-1, 1) @ np.arange(signals.shape[-1]).reshape(1, -1)
+    YCoeff = np.exp(-2j * np.pi / (nBands * signals.shape[-1]) * Y_aux)
 
     # amplitudes got by numpy.fft.fft are N times larger than actual amplitudes
     # in frequency domain. We don't shrink here considering float point
     # arithmetic errors
-    Y = np.matrix(np.multiply(YCoeff, np.fft.fft(signals)))
+    Y = YCoeff * np.fft.fft(signals)
+    # Y = np.matrix(np.multiply(YCoeff, np.fft.fft(signals)))
 
     A_aux = np.matrix(offsets).T * np.matrix(np.arange(0, nBands, 1))
     A = np.matrix(np.exp(2j * np.pi * A_aux / nBands))
 
     # to compensate the amplitudes caused by numpy.fft.fft(signals)
-    A = signals.shape[1] * A
+    A = signals.shape[-1] * A
     return Y, A
+
+def get_measurement_matrix(nBands: int, offsets: list[int]):
+    A_aux = np.matrix(offsets).T * np.matrix(np.arange(0, nBands, 1))
+    A = np.matrix(np.exp(2j * np.pi * A_aux / nBands))
+    return A
 
 
 def get_correlation(A: np.matrix) -> float:

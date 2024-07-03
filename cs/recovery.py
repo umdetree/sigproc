@@ -118,6 +118,8 @@ def recover(Y: np.matrix, A: np.matrix, sparsity=None):
     The recovered original signals `X`
     """
 
+    A = np.matrix(A)
+    Y = np.matrix(Y)
     (M, N) = A.shape
     if M > N:
         raise ValueError("A's rows are greater than cols, there is not need for CS")
