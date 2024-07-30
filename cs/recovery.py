@@ -76,7 +76,7 @@ def somp_sparsity(A: np.ndarray, Y: np.ndarray, s: int) -> set:
     return support
 
 
-def recover_with_support(Y: np.matrix, A: np.matrix, support: set[int]):
+def recover_with_support(Y: np.ndarray, A: np.ndarray, support: set[int]):
     """
     Use Moore-Penrose pseudo inversion to recover signal
 
@@ -104,7 +104,7 @@ def recover_with_support(Y: np.matrix, A: np.matrix, support: set[int]):
     return Xr
 
 
-def recover(Y: np.matrix, A: np.matrix, sparsity=None):
+def recover(Y: np.ndarray, A: np.ndarray, sparsity=None):
     """
     Use eBIC and SOMP to recover signal
 
