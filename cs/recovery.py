@@ -97,7 +97,7 @@ def recover_with_support(Y: np.ndarray, A: np.ndarray, support: set[int]):
     supp = list(support)
     As = np.matrix(A[:, supp])
 
-    xs = np.linalg.inv(As.H * As) * As.H * Y
+    xs = np.linalg.pinv(As) @ Y
     Xr = np.matrix(np.zeros((N, P), dtype=np.cdouble))
     Xr[supp, :] = xs
 
