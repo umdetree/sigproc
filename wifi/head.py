@@ -115,6 +115,9 @@ def parse_lsig_bits(bits: np.ndarray):
     print("LENGTH:", length)
 
     print("If VT/VHT: ")
+    # equation (21-24), page 3054
+    # For HT-mixed formats, specify the transmission time as described in
+    # Sections 19.3.9.3.5 and 10.27.4 of IEEE Std 802.11-2020.
     duration = (length + 3) / 3 * 4 + 20
     print(f"duration: {duration} us")
 
@@ -139,14 +142,15 @@ def test_interleave_signal():
 
 
 def test_decode_signal():
-    # file = "./wifi/mcs3_501.mat"
-    file = "./wifi/40ht_mcs2_1024.mat"
+    file = "./sigproc/wifi/mcs3_501.mat"
+    # file = "./sigproc/wifi/40ht_mcs2_1024.mat"
     # file = "./wifi/vht_default.mat"
     # file = "./wifi/40he_default.mat"
     print(file)
     wave_struct = WaveStruct(file)
     print(f"duration: {len(wave_struct.waveform) / wave_struct.fs * 1e6} us")
     raw_bits = wave_struct.sig_raw_bits(0, "L-SIG")
+    print(raw_bits)
     deinterleaved_bits = deinterleave(raw_bits, n_bpsc=1)
     decoded_bits = viterbi.decode(deinterleaved_bits)
     print(decoded_bits)
@@ -222,7 +226,7 @@ def main():
 if __name__ == "__main__":
     # test_htsig()
     # test_interleave_signal()
-    # test_decode_signal()
+    test_decode_signal()
     # main()
-    waveform = scipy.io.loadmat("./sigproc/wifi/wifi-non-HT.mat")["res"].T[0].flatten()
-    test_decode_nonHT(waveform)
+    # waveform = scipy.io.loadmat("./sigproc/wifi/wifi-non-HT.mat")["res"].T[0].flatten()
+    # test_decode_nonHT(waveform)
