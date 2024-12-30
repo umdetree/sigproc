@@ -5,7 +5,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import tqdm
 
-import filters
+from .. import filters
 
 G = np.array(
     [

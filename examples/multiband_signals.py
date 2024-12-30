@@ -1,13 +1,18 @@
 """
 use square root raised cosine pulse shaping to generate multiband signals
 """
-
 import numpy as np
 import h5py
 import tqdm
+# import torch.nn.functional as F
+# import torch
+import os
+import sys
 
 from ..filters import SqrtRaisedCosFilter
 from ..cs import multicoset
+
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 def main():
     qpsk_symbols = np.exp(1j * np.pi * np.array([1, 3, 7, 5]) / 4)
@@ -44,6 +49,14 @@ def main():
             fc = (bid + 0.5) * bw
             signal += filter.pulse_shape(symbols[i][j], fc)
 
+        import matplotlib.pyplot as plt
+        signal_f = np.fft.fft(signal)
+        plt.plot(np.abs(signal_f))
+        plt.show()
+
+        # bicubic interpolation
+        plt.plot(np.abs(signal_f))
+        plt.show()
 
         # multicoset sampling
         sub_samples, _ = multicoset.sample(
