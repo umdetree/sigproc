@@ -4,8 +4,6 @@ use square root raised cosine pulse shaping to generate multiband signals
 import numpy as np
 import h5py
 import tqdm
-# import torch.nn.functional as F
-# import torch
 import os
 import sys
 
@@ -51,10 +49,6 @@ def main():
 
         import matplotlib.pyplot as plt
         signal_f = np.fft.fft(signal)
-        plt.plot(np.abs(signal_f))
-        plt.show()
-
-        # bicubic interpolation
         plt.plot(np.abs(signal_f))
         plt.show()
 
