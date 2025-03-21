@@ -3,6 +3,7 @@ A brief implementation for multicoset sampling scheme
 """
 
 import numpy as np
+import torch
 
 DEFAULT_N_BANDS = 40
 # DEFAULT_OFFSETS = [16, 11, 1, 0, 27, 24, 37, 31]
@@ -119,6 +120,37 @@ def dft(signals: np.ndarray, offsets: list[int], nBands: int):
     # to compensate the amplitudes caused by numpy.fft.fft(signals)
     A = signals.shape[-1] * A
     return Y, A
+
+def dft_torch(signals: torch.Tensor, offsets: list[int], nBands: int):
+    """
+    Transforms signals sampled by multicoset method into the frequency domain.
+
+    #### Returns
+    1. Multicoset sampling results in the frequency domain (Y).
+    2. The measurement matrix A with shape (nChannels, nBands).
+    """
+
+    device = signals.device  # Ensure all operations run on the same device
+
+    # Convert offsets to a PyTorch tensor
+    offsets = torch.tensor(offsets, dtype=torch.float32, device=device).reshape(-1, 1)
+    
+    # Create frequency domain transformation matrix
+    nSamples = signals.shape[-1]
+    time_indices = torch.arange(nSamples, device=device).reshape(1, -1).float()
+    YCoeff = torch.exp(-2j * torch.pi / (nBands * nSamples) * (offsets @ time_indices))
+
+    # Compute FFT (PyTorch's FFT preserves scale)
+    Y = YCoeff * torch.fft.fft(signals, dim=-1)
+
+    # Construct measurement matrix A
+    freq_indices = torch.arange(0, nBands, device=device).reshape(1, -1).float()
+    A = torch.exp(2j * torch.pi * (offsets @ freq_indices) / nBands)
+
+    # Scale A to compensate for FFT amplitude differences
+    A = nSamples * A
+
+    return Y, A.to(torch.cdouble)
 
 def get_measurement_matrix(nBands: int, offsets: list[int]):
     A_aux = np.matrix(offsets).T * np.matrix(np.arange(0, nBands, 1))

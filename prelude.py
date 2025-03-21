@@ -1,4 +1,5 @@
 import numpy as np
+import torch
 
 CNDarray = np.ndarray[int, np.dtype[np.cdouble]]
 
@@ -58,6 +59,28 @@ def awgn(pure: np.ndarray, snr: float | None, random_seed=None) -> CNDarray:
         size=pure.shape,
         scale=1.0,
     )
+    n = n * noise_scale
+
+    return pure + n
+
+def awgn_torch(pure: torch.Tensor, snr: float | None, random_seed=None) -> torch.Tensor:
+    if snr is None:
+        return pure
+
+    # Compute signal power (root mean square)
+    sig_p_sqrt = torch.sqrt(torch.mean(torch.abs(pure) ** 2))
+
+    # Compute noise scaling factor
+    noise_scale = sig_p_sqrt / (10 ** (snr / 20)) / torch.sqrt(torch.tensor(2.0, device=pure.device))
+
+    # Set random seed for reproducibility
+    if random_seed is not None:
+        torch.manual_seed(random_seed)
+
+    # Generate complex Gaussian noise
+    n = torch.randn_like(pure, dtype=torch.float32) + 1j * torch.randn_like(pure, dtype=torch.float32)
+    
+    # Scale noise
     n = n * noise_scale
 
     return pure + n
