@@ -31,7 +31,8 @@ def sample(
     - `signal`: input signals. When `scheme` is `continuous`, `signal` is a
       function of time, Reals to Complex. When `scheme` is 'discrete', `signal`
       is a numpy.ndarray containing discrete signals, whose sampling frequency
-      is indicated by `bandwidth`
+      is indicated by `bandwidth`. When `scheme` is 'discrete', the shape of 
+      `signal` should be (*, ..., N)
     - `time`: sampling time duration, only used when `scheme` is 'continuous'
     - `bandwidth`: bandwidth W of the input signal, only used when `scheme` is
       'contiuous', where `bandwidth` is viewed as the sampling frequency of the input
@@ -49,7 +50,8 @@ def sample(
 
     1. A numpy.ndarray. Each row is the sub-nyquist sampled signal sequence
     with time interval L/W and time offset c_i/W, where {c_i, i = 1, 2, ...}
-    are non-negative integers
+    are non-negative integers. When `scheme` is 'discrete', the shape of the
+    output is (*, ..., n_chs, N//n_bands).
     2. offsets
     """
     if n_chs > n_bands:
@@ -82,10 +84,10 @@ def sample(
                 sampling_res[i][j] = signal(j * Ts + offsets[i] * T)
 
     elif scheme == "discrete":
-        col = int(np.floor(len(signal) / n_bands))
-        sampling_res = np.zeros((n_chs, col), dtype=np.cdouble)
-        for i in range(n_chs):
-            sampling_res[i] = signal[offsets[i] :: n_bands][:col]
+        col = signal.shape[-1] // n_bands
+        steps = np.arange(col) * n_bands
+        full_indices = np.array(offsets)[:, None] + steps[None, :]
+        sampling_res = signal[..., full_indices]
     else:
         raise NotImplementedError("scheme not supported")
 
@@ -199,5 +201,19 @@ def find_best_offsets():
     print(min_offsets)
     print(min_corr)
 
+def test_sample():
+    nBands = 40
+    nChs = 4
+    offsets = [2, 3, 6, 15]
+    signal = np.arange(0, 400)
+    sampled_signal, _ = sample(signal, time=1.0, bandwidth=1000.0,
+    n_bands=nBands, n_chs=nChs, offsets=offsets)
+    Y, A = dft(sampled_signal, offsets, nBands)
+    print("Sampled signal shape:", sampled_signal.shape)
+    print("Y shape:", Y.shape)
+    print("A shape:", A.shape)
+    print("Y:", Y)
+
 if __name__ == "__main__":
-    find_best_offsets()
+    # find_best_offsets()
+    test_sample()
